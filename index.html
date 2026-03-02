@@ -2341,7 +2341,7 @@ async function guardarCliente() {
   updateBadges();
 }
 
-function eliminarCliente(id) {
+async function eliminarCliente(id) {
   if (!confirm('¿Eliminar este cliente?')) return;
   clientes = clientes.filter(c => c.id != id);
   await saveData();
@@ -2455,7 +2455,7 @@ function openAlertaModal() {
   document.getElementById('modal-alerta-overlay').classList.add('open');
 }
 
-async function guardarAlerta() {
+async async function guardarAlerta() {
   const desc = document.getElementById('al-desc').value.trim();
   if (!desc) { alert('La descripción es obligatoria.'); return; }
   alertas.push({
@@ -2465,20 +2465,20 @@ async function guardarAlerta() {
     notas: document.getElementById('al-notas').value,
     resuelta: false
   });
-  saveData();
+  await saveData();
   document.getElementById('modal-alerta-overlay').classList.remove('open');
   renderAlertas();
   updateBadges();
 }
 
-function resolverAlerta(id) {
+async function resolverAlerta(id) {
   alertas = alertas.map(a => a.id == id ? {...a, resuelta: true} : a);
-  saveData(); renderAlertas(); updateBadges();
+  await saveData(); renderAlertas(); updateBadges();
 }
 
-function eliminarAlerta(id) {
+async function eliminarAlerta(id) {
   alertas = alertas.filter(a => a.id != id);
-  saveData(); renderAlertas(); updateBadges();
+  await saveData(); renderAlertas(); updateBadges();
 }
 
 function renderAlertas() {
@@ -2592,7 +2592,7 @@ async function guardarReserva() {
     }
     return v;
   });
-  saveData();
+  await saveData();
   document.getElementById('modal-reserva-overlay').classList.remove('open');
   renderAll();
   // Success toast
@@ -2815,7 +2815,7 @@ function openTrabajoModal(provId) {
   document.getElementById('modal-trabajo-overlay').classList.add('open');
 }
 
-async function guardarTrabajo() {
+async async function guardarTrabajo() {
   const desc = document.getElementById('trabajo-desc').value.trim();
   const provId = document.getElementById('trabajo-prov-id').value;
   if (!desc) { alert('La descripción es obligatoria.'); return; }
@@ -2835,7 +2835,7 @@ async function guardarTrabajo() {
   if (v && t.costo > 0) {
     vehicles = vehicles.map(x => x.id == v.id ? {...x, otros: (x.otros||0) + t.costo} : x);
   }
-  saveData();
+  await saveData();
   document.getElementById('modal-trabajo-overlay').classList.remove('open');
   renderTrabajos(parseInt(provId));
   renderProveedores();
@@ -2868,7 +2868,7 @@ function renderTrabajos(provId) {
   </tr>`).join('');
 }
 
-async function eliminarTrabajo(id, provId) {
+async async function eliminarTrabajo(id, provId) {
   trabajos = trabajos.filter(t => t.id != id);
   await saveData(); renderTrabajos(provId); renderProveedores();
 }
@@ -3004,7 +3004,7 @@ function exportarDatos() {
   URL.revokeObjectURL(a.href);
 }
 
-function importarDatos(input) {
+async function importarDatos(input) {
   const file = input.files[0];
   if (!file) return;
   const reader = new FileReader();
@@ -3021,7 +3021,7 @@ function importarDatos(input) {
       ventas    = data.ventas    || [];
       clientes  = data.clientes  || [];
       alertas   = data.alertas   || [];
-      saveData();
+      await saveData();
       renderAll();
       showView('dashboard');
       // Show success message
