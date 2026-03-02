@@ -1428,7 +1428,7 @@
   </div>
 </div>
 
-<script>
+<script type="text/javascript">
 // ==================== DATA ====================
 let vehicles = [];
 
@@ -2109,14 +2109,24 @@ async function guardarUnidad() {
 
 
 // ==================== SUPABASE ====================
-const _supabase = supabase.createClient('https://megyhnrrwqbhllliedyx.supabase.co', 'sb_publishable_LUsZAAgJFE7f9cPu-97lFA_sMA85LX7');
+let _supabase;
+try {
+  _supabase = supabase.createClient('https://megyhnrrwqbhllliedyx.supabase.co', 'sb_publishable_LUsZAAgJFE7f9cPu-97lFA_sMA85LX7');
+  console.log('✅ Supabase conectado correctamente');
+} catch(e) {
+  console.error('❌ Error conectando Supabase:', e);
+}
 
 async function saveTable(table, arr) {
-  // Upsert all records as {id, data} rows
-  if (!arr.length) return;
+  if (!_supabase) return;
+  if (!arr.length) {
+    // Delete all if array is empty
+    await _supabase.from(table).delete().neq('id', 0);
+    return;
+  }
   const rows = arr.map(item => ({ id: item.id, data: item }));
   const { error } = await _supabase.from(table).upsert(rows, { onConflict: 'id' });
-  if (error) console.error('Save error', table, error);
+  if (error) console.error('Save error', table, error.message);
 }
 
 async function deleteFromTable(table, arr, prevArr) {
@@ -2162,14 +2172,14 @@ async function loadData() {
     trabajos   = parse(results[5]);
     
   } catch(e) {
-    console.error('Supabase load error, falling back to localStorage', e);
-    // Fallback to localStorage
+    console.error('Supabase load error, falling back to localStorage', e.message);
     try { vehicles = JSON.parse(localStorage.getItem('ms_vehicles')) || []; } catch(e) { vehicles = []; }
     try { ventas = JSON.parse(localStorage.getItem('ms_ventas')) || []; } catch(e) { ventas = []; }
     try { clientes = JSON.parse(localStorage.getItem('ms_clientes')) || []; } catch(e) { clientes = []; }
     try { alertas = JSON.parse(localStorage.getItem('ms_alertas')) || []; } catch(e) { alertas = []; }
     try { proveedores = JSON.parse(localStorage.getItem('ms_proveedores')) || []; } catch(e) { proveedores = []; }
     try { trabajos = JSON.parse(localStorage.getItem('ms_trabajos')) || []; } catch(e) { trabajos = []; }
+    setTimeout(() => showToast('⚠️ Sin conexión — usando datos locales'), 500);
   } finally {
     document.getElementById('loading-overlay')?.remove();
   }
@@ -3039,10 +3049,10 @@ async function importarDatos(input) {
 }
 
 // ==================== INIT ====================
-(async () => {
+window.addEventListener('load', async function() {
   await loadData();
   renderAll();
-})();
+});
 </script>
 </body>
 </html>
