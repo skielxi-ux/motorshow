@@ -2050,7 +2050,7 @@ function calcMargen() {
   }
 }
 
-async function guardarUnidad() {
+function guardarUnidad() {
   const patente = document.getElementById('f-patente').value.trim();
   const vin = document.getElementById('f-vin').value.trim();
   const km = parseInt(document.getElementById('f-km').value) || 0;
@@ -2098,7 +2098,7 @@ async function guardarUnidad() {
   };
 
   vehicles.push(newV);
-  await saveData();
+  saveData();
   // Reset form
   ['f-patente','f-vin','f-km','f-modelo','f-version','f-anio','f-color','f-toma','f-mecanica','f-estetica','f-cubiertas','f-limpieza','f-otros','f-mercado','f-lista','f-costo-dia','f-venc-verif','f-obs-legal'].forEach(id => {
     document.getElementById(id).value = '';
@@ -2109,43 +2109,23 @@ async function guardarUnidad() {
 
 
 // ==================== SUPABASE ====================
-let _supabase;
-try {
-  _supabase = supabase.createClient('https://megyhnrrwqbhllliedyx.supabase.co', 'sb_publishable_LUsZAAgJFE7f9cPu-97lFA_sMA85LX7');
-  console.log('✅ Supabase conectado correctamente');
-} catch(e) {
-  console.error('❌ Error conectando Supabase:', e);
-}
+const SUPA_URL = 'https://megyhnrrwqbhllliedyx.supabase.co';
+const SUPA_KEY = 'sb_publishable_LUsZAAgJFE7f9cPu-97lFA_sMA85LX7';
+const db = window.supabase.createClient(SUPA_URL, SUPA_KEY);
 
-async function saveTable(table, arr) {
-  if (!_supabase) return;
-  if (!arr.length) {
-    // Delete all if array is empty
-    await _supabase.from(table).delete().neq('id', 0);
-    return;
-  }
-  const rows = arr.map(item => ({ id: item.id, data: item }));
-  const { error } = await _supabase.from(table).upsert(rows, { onConflict: 'id' });
-  if (error) console.error('Save error', table, error.message);
-}
-
-async function deleteFromTable(table, arr, prevArr) {
-  // Delete records that were removed
-  const currentIds = new Set(arr.map(x => x.id));
-  const toDelete = prevArr.filter(x => !currentIds.has(x.id)).map(x => x.id);
-  if (toDelete.length) await _supabase.from(table).delete().in('id', toDelete);
-}
-
-async function saveData() {
-  await Promise.all([
-    saveTable('vehicles', vehicles),
-    saveTable('ventas', ventas),
-    saveTable('clientes', clientes),
-    saveTable('alertas', alertas),
-    saveTable('proveedores', proveedores),
-    saveTable('trabajos', trabajos),
-  ]);
-  // Also keep localStorage as fallback
+function saveData() {
+  var tables = {
+    vehicles: vehicles, ventas: ventas, clientes: clientes,
+    alertas: alertas, proveedores: proveedores, trabajos: trabajos
+  };
+  Object.keys(tables).forEach(function(table) {
+    var arr = tables[table];
+    if (!arr || !arr.length) return;
+    var rows = arr.map(function(item) { return { id: item.id, data: item }; });
+    db.from(table).upsert(rows, { onConflict: 'id' }).then(function(res) {
+      if (res.error) console.error('Save error ' + table + ':', res.error.message);
+    });
+  });
   localStorage.setItem('ms_vehicles', JSON.stringify(vehicles));
   localStorage.setItem('ms_ventas', JSON.stringify(ventas));
   localStorage.setItem('ms_clientes', JSON.stringify(clientes));
@@ -2154,35 +2134,37 @@ async function saveData() {
   localStorage.setItem('ms_trabajos', JSON.stringify(trabajos));
 }
 
-async function loadData() {
-  // Show loading indicator
-  document.body.insertAdjacentHTML('beforeend', '<div id="loading-overlay" style="position:fixed;inset:0;background:rgba(13,15,18,0.92);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:99999;font-family:Montserrat,sans-serif;"><div style="font-size:32px;margin-bottom:16px;">⟳</div><div style="color:#39ff6a;font-weight:700;font-size:16px;">Cargando datos...</div><div style="color:#8a95aa;font-size:12px;margin-top:8px;">Conectando con la base de datos</div></div>');
-  
-  try {
-    const tables = ['vehicles','ventas','clientes','alertas','proveedores','trabajos'];
-    const results = await Promise.all(tables.map(t => _supabase.from(t).select('data')));
-    
-    const parse = (res) => res.data ? res.data.map(r => r.data) : [];
-    
-    vehicles   = parse(results[0]);
-    ventas     = parse(results[1]);
-    clientes   = parse(results[2]);
-    alertas    = parse(results[3]);
-    proveedores= parse(results[4]);
-    trabajos   = parse(results[5]);
-    
-  } catch(e) {
-    console.error('Supabase load error, falling back to localStorage', e.message);
-    try { vehicles = JSON.parse(localStorage.getItem('ms_vehicles')) || []; } catch(e) { vehicles = []; }
-    try { ventas = JSON.parse(localStorage.getItem('ms_ventas')) || []; } catch(e) { ventas = []; }
-    try { clientes = JSON.parse(localStorage.getItem('ms_clientes')) || []; } catch(e) { clientes = []; }
-    try { alertas = JSON.parse(localStorage.getItem('ms_alertas')) || []; } catch(e) { alertas = []; }
-    try { proveedores = JSON.parse(localStorage.getItem('ms_proveedores')) || []; } catch(e) { proveedores = []; }
-    try { trabajos = JSON.parse(localStorage.getItem('ms_trabajos')) || []; } catch(e) { trabajos = []; }
-    setTimeout(() => showToast('⚠️ Sin conexión — usando datos locales'), 500);
-  } finally {
-    document.getElementById('loading-overlay')?.remove();
-  }
+function loadData() {
+  var overlay = document.createElement('div');
+  overlay.id = 'loading-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(13,15,18,0.95);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:99999;font-family:Montserrat,sans-serif;';
+  overlay.innerHTML = '<div style="font-size:40px;margin-bottom:16px;animation:spin 1s linear infinite;">⟳</div><div style="color:#39ff6a;font-weight:700;font-size:16px;">Cargando datos...</div><div style="color:#8a95aa;font-size:12px;margin-top:8px;">Conectando con Supabase</div>';
+  document.body.appendChild(overlay);
+
+  var tables = ['vehicles','ventas','clientes','alertas','proveedores','trabajos'];
+  var promises = tables.map(function(t) { return db.from(t).select('data'); });
+
+  Promise.all(promises).then(function(results) {
+    vehicles    = results[0].data ? results[0].data.map(function(r) { return r.data; }) : [];
+    ventas      = results[1].data ? results[1].data.map(function(r) { return r.data; }) : [];
+    clientes    = results[2].data ? results[2].data.map(function(r) { return r.data; }) : [];
+    alertas     = results[3].data ? results[3].data.map(function(r) { return r.data; }) : [];
+    proveedores = results[4].data ? results[4].data.map(function(r) { return r.data; }) : [];
+    trabajos    = results[5].data ? results[5].data.map(function(r) { return r.data; }) : [];
+    console.log('✅ Datos cargados desde Supabase');
+  }).catch(function(e) {
+    console.error('Error Supabase, usando localStorage:', e);
+    try { vehicles = JSON.parse(localStorage.getItem('ms_vehicles')) || []; } catch(x) { vehicles = []; }
+    try { ventas = JSON.parse(localStorage.getItem('ms_ventas')) || []; } catch(x) { ventas = []; }
+    try { clientes = JSON.parse(localStorage.getItem('ms_clientes')) || []; } catch(x) { clientes = []; }
+    try { alertas = JSON.parse(localStorage.getItem('ms_alertas')) || []; } catch(x) { alertas = []; }
+    try { proveedores = JSON.parse(localStorage.getItem('ms_proveedores')) || []; } catch(x) { proveedores = []; }
+    try { trabajos = JSON.parse(localStorage.getItem('ms_trabajos')) || []; } catch(x) { trabajos = []; }
+  }).finally(function() {
+    var el = document.getElementById('loading-overlay');
+    if (el) el.remove();
+    renderAll();
+  });
 }
 
 // ==================== DATA STORES ====================
@@ -2237,7 +2219,7 @@ function calcVentaMargen() {
   }
 }
 
-async function guardarVenta() {
+function guardarVenta() {
   const toma = parseFloat(document.getElementById('venta-toma').value) || 0;
   const precio = parseFloat(document.getElementById('venta-precio').value) || 0;
   if (!toma || !precio) { alert('Completá al menos Precio de Toma y Precio de Venta.'); return; }
@@ -2262,7 +2244,7 @@ async function guardarVenta() {
   ventas.push(venta);
   // Remove from stock if selected
   if (v) vehicles = vehicles.filter(x => x.id != v.id);
-  await saveData();
+  saveData();
   document.getElementById('modal-venta-overlay').classList.remove('open');
   renderAll();
 }
@@ -2329,7 +2311,7 @@ function openClienteModal(id) {
   document.getElementById('modal-cliente-overlay').classList.add('open');
 }
 
-async function guardarCliente() {
+function guardarCliente() {
   const nombre = document.getElementById('cli-nombre').value.trim();
   if (!nombre) { alert('El nombre es obligatorio.'); return; }
   const existingId = document.getElementById('cli-id').value;
@@ -2345,16 +2327,16 @@ async function guardarCliente() {
   };
   if (existingId) { clientes = clientes.map(c => c.id == existingId ? cli : c); }
   else { clientes.push(cli); }
-  await saveData();
+  saveData();
   document.getElementById('modal-cliente-overlay').classList.remove('open');
   renderClientes();
   updateBadges();
 }
 
-async function eliminarCliente(id) {
+function eliminarCliente(id) {
   if (!confirm('¿Eliminar este cliente?')) return;
   clientes = clientes.filter(c => c.id != id);
-  await saveData();
+  saveData();
   renderClientes();
   updateBadges();
 }
@@ -2465,7 +2447,7 @@ function openAlertaModal() {
   document.getElementById('modal-alerta-overlay').classList.add('open');
 }
 
-async async function guardarAlerta() {
+function guardarAlerta() {
   const desc = document.getElementById('al-desc').value.trim();
   if (!desc) { alert('La descripción es obligatoria.'); return; }
   alertas.push({
@@ -2475,20 +2457,20 @@ async async function guardarAlerta() {
     notas: document.getElementById('al-notas').value,
     resuelta: false
   });
-  await saveData();
+  saveData();
   document.getElementById('modal-alerta-overlay').classList.remove('open');
   renderAlertas();
   updateBadges();
 }
 
-async function resolverAlerta(id) {
+function resolverAlerta(id) {
   alertas = alertas.map(a => a.id == id ? {...a, resuelta: true} : a);
-  await saveData(); renderAlertas(); updateBadges();
+  saveData(); renderAlertas(); updateBadges();
 }
 
-async function eliminarAlerta(id) {
+function eliminarAlerta(id) {
   alertas = alertas.filter(a => a.id != id);
-  await saveData(); renderAlertas(); updateBadges();
+  saveData(); renderAlertas(); updateBadges();
 }
 
 function renderAlertas() {
@@ -2581,7 +2563,7 @@ function openReservaModal(id) {
   document.getElementById('modal-reserva-overlay').classList.add('open');
 }
 
-async function guardarReserva() {
+function guardarReserva() {
   const vid = document.getElementById('reserva-vid').value;
   const cliente = document.getElementById('res-cliente').value.trim();
   if (!cliente) { alert('El nombre del cliente es obligatorio.'); return; }
@@ -2602,17 +2584,17 @@ async function guardarReserva() {
     }
     return v;
   });
-  await saveData();
+  saveData();
   document.getElementById('modal-reserva-overlay').classList.remove('open');
   renderAll();
   // Success toast
   showToast('🔒 Vehículo marcado como RESERVADO');
 }
 
-async function liberarReserva(id) {
+function liberarReserva(id) {
   if (!confirm('¿Liberar la reserva de este vehículo?')) return;
   vehicles = vehicles.map(v => v.id == id ? {...v, reservado: false, reserva: null} : v);
-  await saveData();
+  saveData();
   renderAll();
   showToast('✅ Reserva liberada');
 }
@@ -2727,7 +2709,7 @@ function openProveedorModal(id) {
   document.getElementById('modal-prov-overlay').classList.add('open');
 }
 
-async function guardarProveedor() {
+function guardarProveedor() {
   const nombre = document.getElementById('prov-nombre').value.trim();
   if (!nombre) { alert('El nombre es obligatorio.'); return; }
   const existingId = document.getElementById('prov-id').value;
@@ -2743,18 +2725,18 @@ async function guardarProveedor() {
   };
   if (existingId) { proveedores = proveedores.map(x => x.id == existingId ? p : x); }
   else { proveedores.push(p); }
-  await saveData();
+  saveData();
   document.getElementById('modal-prov-overlay').classList.remove('open');
   renderProveedores();
   updateBadges();
 }
 
-async function eliminarProveedor(id) {
+function eliminarProveedor(id) {
   if (!confirm('¿Eliminar este proveedor y todos sus trabajos?')) return;
   proveedores = proveedores.filter(p => p.id != id);
   trabajos = trabajos.filter(t => t.provId != id);
   if (selectedProvId == id) { selectedProvId = null; document.getElementById('trabajos-card').style.display = 'none'; }
-  await saveData(); renderProveedores(); updateBadges();
+  saveData(); renderProveedores(); updateBadges();
 }
 
 const rubroColors = {
@@ -2825,7 +2807,7 @@ function openTrabajoModal(provId) {
   document.getElementById('modal-trabajo-overlay').classList.add('open');
 }
 
-async async function guardarTrabajo() {
+function guardarTrabajo() {
   const desc = document.getElementById('trabajo-desc').value.trim();
   const provId = document.getElementById('trabajo-prov-id').value;
   if (!desc) { alert('La descripción es obligatoria.'); return; }
@@ -2845,7 +2827,7 @@ async async function guardarTrabajo() {
   if (v && t.costo > 0) {
     vehicles = vehicles.map(x => x.id == v.id ? {...x, otros: (x.otros||0) + t.costo} : x);
   }
-  await saveData();
+  saveData();
   document.getElementById('modal-trabajo-overlay').classList.remove('open');
   renderTrabajos(parseInt(provId));
   renderProveedores();
@@ -2878,9 +2860,9 @@ function renderTrabajos(provId) {
   </tr>`).join('');
 }
 
-async async function eliminarTrabajo(id, provId) {
+function eliminarTrabajo(id, provId) {
   trabajos = trabajos.filter(t => t.id != id);
-  await saveData(); renderTrabajos(provId); renderProveedores();
+  saveData(); renderTrabajos(provId); renderProveedores();
 }
 
 // ==================== WHATSAPP COTIZADOR ====================
@@ -3014,7 +2996,7 @@ function exportarDatos() {
   URL.revokeObjectURL(a.href);
 }
 
-async function importarDatos(input) {
+function importarDatos(input) {
   const file = input.files[0];
   if (!file) return;
   const reader = new FileReader();
@@ -3031,7 +3013,7 @@ async function importarDatos(input) {
       ventas    = data.ventas    || [];
       clientes  = data.clientes  || [];
       alertas   = data.alertas   || [];
-      await saveData();
+      saveData();
       renderAll();
       showView('dashboard');
       // Show success message
@@ -3049,9 +3031,8 @@ async function importarDatos(input) {
 }
 
 // ==================== INIT ====================
-window.addEventListener('load', async function() {
-  await loadData();
-  renderAll();
+window.addEventListener('load', function() {
+  loadData();
 });
 </script>
 </body>
