@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Motorshow — Sistema de Gestión</title>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.3/dist/umd/supabase.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
   :root {
@@ -2121,7 +2121,13 @@ function guardarUnidad() {
 // ==================== SUPABASE ====================
 const SUPA_URL = 'https://megyhnrrwqbhllliedyx.supabase.co';
 const SUPA_KEY = 'sb_publishable_LUsZAAgJFE7f9cPu-97lFA_sMA85LX7';
-const db = window.supabase.createClient(SUPA_URL, SUPA_KEY);
+var db;
+try {
+  db = window.supabase.createClient(SUPA_URL, SUPA_KEY);
+  console.log('✅ Supabase client creado');
+} catch(e) {
+  console.error('❌ Error creando cliente Supabase:', e);
+}
 
 function saveData() {
   var tables = {
@@ -2133,7 +2139,13 @@ function saveData() {
     if (!arr || !arr.length) return;
     var rows = arr.map(function(item) { return { id: item.id, data: item }; });
     db.from(table).upsert(rows, { onConflict: 'id' }).then(function(res) {
-      if (res.error) console.error('Save error ' + table + ':', res.error.message);
+      if (res.error) {
+        console.error('❌ Save error ' + table + ':', res.error.message, res.error);
+      } else {
+        console.log('✅ Guardado en Supabase:', table, rows.length, 'registros');
+      }
+    }).catch(function(e) {
+      console.error('❌ Catch save error ' + table + ':', e);
     });
   });
   localStorage.setItem('ms_vehicles', JSON.stringify(vehicles));
@@ -2155,13 +2167,14 @@ function loadData() {
   var promises = tables.map(function(t) { return db.from(t).select('data'); });
 
   Promise.all(promises).then(function(results) {
+    console.log('Supabase results:', results.map(function(r) { return {data: r.data ? r.data.length : 0, error: r.error}; }));
     vehicles    = results[0].data ? results[0].data.map(function(r) { return r.data; }) : [];
     ventas      = results[1].data ? results[1].data.map(function(r) { return r.data; }) : [];
     clientes    = results[2].data ? results[2].data.map(function(r) { return r.data; }) : [];
     alertas     = results[3].data ? results[3].data.map(function(r) { return r.data; }) : [];
     proveedores = results[4].data ? results[4].data.map(function(r) { return r.data; }) : [];
     trabajos    = results[5].data ? results[5].data.map(function(r) { return r.data; }) : [];
-    console.log('✅ Datos cargados desde Supabase');
+    console.log('✅ Datos cargados - vehicles:', vehicles.length, 'ventas:', ventas.length);
   }).catch(function(e) {
     console.error('Error Supabase, usando localStorage:', e);
     try { vehicles = JSON.parse(localStorage.getItem('ms_vehicles')) || []; } catch(x) { vehicles = []; }
