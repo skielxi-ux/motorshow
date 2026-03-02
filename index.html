@@ -1495,9 +1495,18 @@ function docSemaforo(v) {
 
 // ==================== NAVIGATION ====================
 const viewTitles = {
-  dashboard: 'Dashboard', inventario: 'Inventario — Stock de Unidades',
-  costos: 'Costos y Precios por Unidad', documentos: 'Módulo Documental y Legal',
-  aging: 'Inteligencia de Tiempos — Antigüedad de Stock', nuevo: 'Agregar Nueva Unidad'
+  dashboard: 'Dashboard',
+  inventario: 'Inventario — Stock de Unidades',
+  costos: 'Costos y Precios por Unidad',
+  documentos: 'Módulo Documental y Legal',
+  aging: 'Inteligencia de Tiempos — Antigüedad de Stock',
+  nuevo: 'Agregar Nueva Unidad',
+  comparador: 'Comparador de Precios — Mercado Libre',
+  ventas: 'Registro de Ventas Cerradas',
+  clientes: 'Gestión de Clientes y Consultas',
+  financiacion: 'Calculadora de Financiación',
+  alertas: 'Alertas y Recordatorios',
+  proveedores: 'Gestión de Proveedores'
 };
 
 function showView(name) {
@@ -1505,8 +1514,9 @@ function showView(name) {
   document.getElementById('view-' + name).classList.add('active');
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => {
-    if (n.textContent.toLowerCase().includes(viewTitles[name].split('—')[0].trim().toLowerCase().slice(0,6)) ||
-        n.onclick?.toString().includes(name)) n.classList.add('active');
+    var title = viewTitles[name] || name;
+    if (n.textContent.toLowerCase().includes(title.split('—')[0].trim().toLowerCase().slice(0,6)) ||
+        (n.getAttribute('onclick') || '').includes(name)) n.classList.add('active');
   });
   document.getElementById('page-title').textContent = viewTitles[name] || name;
   renderAll();
